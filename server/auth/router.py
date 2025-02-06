@@ -8,8 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 
-from database import database
-from config import BaseConfig
+from server.database import database
+from server.config import BaseConfig
 
 from auth.models import User
 from auth.schema import UserReadScheme, UserReadWithChatsScheme, UserCreateScheme, UserUpdateScheme, Token, LoginForm
@@ -56,10 +56,10 @@ async def create_user(user: UserCreateScheme = None) -> Optional[UserReadScheme]
     
 
 # TODO
-# 1. Create route sign in
-# 2. Create route for searching by login or phone
+# 1. Create route sign in. Singin is get token endpoint!!! DONE
+# 2. Create route for searching by login or phone DONE
 # 3. Create logic for user logger for admins
-# 4. Create remove user from chat
+# 4. Create remove user from chat DONE
 
 @router.get("/me")
 async def get_me(token: str = Depends(oauth2_scheme)) -> Optional[UserReadWithChatsScheme]:
@@ -74,8 +74,8 @@ async def get_me(token: str = Depends(oauth2_scheme)) -> Optional[UserReadWithCh
 
     return UserReadWithChatsScheme.model_validate(user)
 
-@router.get("/user/{login}")
-async def get_user(login: str = Path(...), token: str = Depends(oauth2_scheme)) -> Optional[UserReadWithChatsScheme]:
+@router.get("/user/get")
+async def get_user(login: Optional[str] = Query(None), phone: Optional[str] = Query(None), token: str = Depends(oauth2_scheme)) -> Optional[UserReadWithChatsScheme]:
     try:
         request_login = user_auth.decode_token(token)
     except JWTError:
@@ -85,12 +85,26 @@ async def get_user(login: str = Path(...), token: str = Depends(oauth2_scheme)) 
     if not request_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if request_user.is_admin:
-        user = await user_auth.get_user_with_chats(login)
-    else:
-        user = await user_auth.get_user(login)
+    if not login and not phone:
+        raise HTTPException(status_code=400, detail="Either login or phone must be provided")
 
-    return UserReadWithChatsScheme.model_validate(user)
+    async with database.async_session() as session:
+        query = select(User).where((User.login == login) | (User.phone_num == f"+{phone}"))
+        
+        if request_user.is_admin:
+            query = query.options(selectinload(User.chats))
+        
+        result = await session.execute(query)
+        user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if request_user.is_admin:
+        return UserReadWithChatsScheme.model_validate(user)
+    else:
+        return UserReadScheme.model_validate(user)
+
 
 @router.patch("/me/update")
 async def update_me(data: UserUpdateScheme, token: str = Depends(oauth2_scheme)) -> Optional[UserReadScheme]:
@@ -107,6 +121,8 @@ async def update_me(data: UserUpdateScheme, token: str = Depends(oauth2_scheme))
         user = await session.merge(user)
 
         for key, value in data.model_dump(exclude_unset=True, exclude_none=True).items():
+            if key in ["is_admin", "is_active", "last_active", "is_blocked"]:
+                continue
             setattr(user, key, value)
 
         await session.commit()

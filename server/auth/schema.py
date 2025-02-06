@@ -16,7 +16,7 @@ class UserUpdateScheme(BaseModel):
     login: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    phone_num: Optional[str] = None
+    phone_num: Optional[str] = None # TODO Think about how to change phone if i would use OTP on phone confirm
     avatar: Optional[str] = None
 
     is_active: Optional[bool] = None
@@ -61,7 +61,6 @@ class Token(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str
-
 
 class LoginForm(BaseModel):
     login: str

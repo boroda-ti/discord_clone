@@ -26,7 +26,7 @@ class Chat(Base):
     messages: Mapped[List["Message"]] = relationship(back_populates="chat")
 
     created_at: Mapped[datetime.datetime] = mapped_column(server_default = text("TIMEZONE('utc', now())"))
-    updated_at: Mapped[datetime.datetime] = mapped_column(server_default = text("TIMEZONE('utc', now())"), onupdate = datetime.datetime.now(datetime.timezone.utc))
+    updated_at: Mapped[datetime.datetime] = mapped_column(server_default = text("TIMEZONE('utc', now())"), onupdate = text("TIMEZONE('utc', now())"))
 
 
 class Message(Base):
@@ -44,4 +44,4 @@ class Message(Base):
     chat: Mapped["Chat"] = relationship("Chat",  back_populates="messages", uselist=False)
 
     created_at: Mapped[datetime.datetime] = mapped_column(server_default = text("TIMEZONE('utc', now())"))
-    updated_at: Mapped[datetime.datetime] = mapped_column(server_default = text("TIMEZONE('utc', now())"), onupdate = datetime.datetime.now(datetime.timezone.utc))
+    updated_at: Mapped[datetime.datetime] = mapped_column(server_default = text("TIMEZONE('utc', now())"), onupdate = text("TIMEZONE('utc', now())"))
